@@ -4,8 +4,7 @@
 # Save this as: .github/workflows/build-image.yml in your workshop repository
 #
 # Required secrets in your workshop repository:
-# - GCP_SA_KEY: GCP service account key (same as in ps-image-builder)
-# - GCP_PROJECT_ID: Your GCP project ID
+# - GCP_SA_KEY: GCP service account key JSON
 
 name: Build GCP Image
 
@@ -38,7 +37,6 @@ jobs:
       source_repo_ref: ${{ github.ref_name }}
       image_name: ${{ github.event.repository.name }}
       image_family: ${{ inputs.image_family || format('{0}-{1}', github.event.repository.name, github.ref_name) }}
-      gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
       gcp_region: 'us-east1'
       gcp_zone: 'us-east1-b'
       disk_size: ${{ inputs.disk_size || '100' }}
@@ -67,7 +65,6 @@ jobs:
           echo ""
           echo "gcloud compute instances create my-vm \\"
           echo "  --image=${{ needs.build-image.outputs.image_name }} \\"
-          echo "  --project=${{ secrets.GCP_PROJECT_ID }} \\"
           echo "  --zone=us-east1-b \\"
           echo "  --machine-type=n1-standard-2 \\"
           echo "  --metadata=DOMAIN=nip.io,HOSTNAME=my-workshop \\"
