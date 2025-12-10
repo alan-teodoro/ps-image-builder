@@ -127,6 +127,7 @@ jobs:
       - name: Checkout image builder repository
         uses: actions/checkout@v4
         with:
+          repository: alan-teodoro/ps-image-builder
           path: builder
 
       - name: Extract repository info
