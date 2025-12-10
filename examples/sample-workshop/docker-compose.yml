@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Nginx reverse proxy - handles incoming traffic on port 80
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./html:/usr/share/nginx/html:ro
+    depends_on:
+      - redis-insight
+      - app
+    restart: always
+
+  # Redis database
+  redis:
+    image: redis:7.2-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  # RedisInsight - Redis GUI
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis-insight
+    ports:
+      - "5540:5540"
+    volumes:
+      - redisinsight-data:/data
+    restart: always
+
+  # Sample application
+  app:
+    image: node:18-alpine
+    container_name: app
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app:/app
+    command: sh -c "npm install && npm start"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=production
+    depends_on:
+      - redis
+    restart: always
+
+volumes:
+  redis-data:
+  redisinsight-data:
+

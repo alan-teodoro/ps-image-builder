@@ -1,0 +1,50 @@
+# Packer
+*.box
+packer_cache/
+crash.log
+*.log
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# GCP
+secret.json
+*-key.json
+service-account*.json
+
+# Build artifacts
+source/
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

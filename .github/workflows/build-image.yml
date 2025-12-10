@@ -1,0 +1,138 @@
+name: Build GCP Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo_url:
+        description: 'Source repository URL (e.g., https://github.com/user/demo-repo)'
+        required: true
+        type: string
+      source_repo_ref:
+        description: 'Branch, tag, or commit SHA to build from'
+        required: true
+        default: 'main'
+        type: string
+      image_name:
+        description: 'Name for the GCP image (e.g., my-workshop)'
+        required: true
+        type: string
+      image_family:
+        description: 'Image family for versioning (e.g., my-workshop-v1)'
+        required: true
+        default: 'generic-workshop'
+        type: string
+      gcp_project_id:
+        description: 'GCP Project ID'
+        required: true
+        type: string
+      gcp_region:
+        description: 'GCP Region'
+        required: false
+        default: 'us-east1'
+        type: string
+      gcp_zone:
+        description: 'GCP Zone'
+        required: false
+        default: 'us-east1-b'
+        type: string
+      disk_size:
+        description: 'Disk size in GB'
+        required: false
+        default: '100'
+        type: string
+
+env:
+  PACKER_VERSION: '1.10.0'
+
+jobs:
+  validate-and-build:
+    name: Validate and Build Image
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout image builder repository
+        uses: actions/checkout@v4
+        with:
+          path: builder
+
+      - name: Clone source repository
+        run: |
+          echo "Cloning source repository: ${{ inputs.source_repo_url }}"
+          git clone --depth 1 --branch ${{ inputs.source_repo_ref }} ${{ inputs.source_repo_url }} source
+          
+      - name: Validate source repository structure
+        run: |
+          echo "Validating repository structure..."
+          
+          # Check for required files
+          if [ ! -f "source/docker-compose.yml" ]; then
+            echo "❌ ERROR: docker-compose.yml not found in source repository"
+            echo "Please ensure your repository contains a docker-compose.yml file"
+            exit 1
+          fi
+          
+          if [ ! -f "source/start.sh" ]; then
+            echo "❌ ERROR: start.sh not found in source repository"
+            echo "Please ensure your repository contains a start.sh file"
+            exit 1
+          fi
+          
+          echo "✅ Repository structure is valid"
+          echo "Found files:"
+          ls -la source/
+          
+      - name: Setup Packer
+        uses: hashicorp/setup-packer@main
+        with:
+          version: ${{ env.PACKER_VERSION }}
+          
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          
+      - name: Setup Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        
+      - name: Initialize Packer
+        run: |
+          cd builder/packer
+          packer init generic-image.pkr.hcl
+          
+      - name: Validate Packer template
+        run: |
+          cd builder/packer
+          packer validate \
+            -var "project_id=${{ inputs.gcp_project_id }}" \
+            -var "image_name=${{ inputs.image_name }}" \
+            -var "image_family=${{ inputs.image_family }}" \
+            -var "zone=${{ inputs.gcp_zone }}" \
+            -var "region=${{ inputs.gcp_region }}" \
+            -var "disk_size=${{ inputs.disk_size }}" \
+            -var "source_content_path=../../source" \
+            generic-image.pkr.hcl
+            
+      - name: Build GCP image with Packer
+        run: |
+          cd builder/packer
+          packer build \
+            -var "project_id=${{ inputs.gcp_project_id }}" \
+            -var "image_name=${{ inputs.image_name }}" \
+            -var "image_family=${{ inputs.image_family }}" \
+            -var "zone=${{ inputs.gcp_zone }}" \
+            -var "region=${{ inputs.gcp_region }}" \
+            -var "disk_size=${{ inputs.disk_size }}" \
+            -var "source_content_path=../../source" \
+            generic-image.pkr.hcl
+            
+      - name: Output image information
+        run: |
+          echo "✅ Image build complete!"
+          echo "Image Family: ${{ inputs.image_family }}"
+          echo "Image Name Pattern: ${{ inputs.image_name }}-*"
+          echo "GCP Project: ${{ inputs.gcp_project_id }}"
+          echo "Region: ${{ inputs.gcp_region }}"
+          echo ""
+          echo "To use this image, find it in GCP Console:"
+          echo "Compute Engine > Images > Filter by family: ${{ inputs.image_family }}"
+
