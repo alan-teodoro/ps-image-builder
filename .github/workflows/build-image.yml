@@ -129,10 +129,20 @@ jobs:
         with:
           path: builder
 
-      - name: Clone source repository
+      - name: Extract repository info
+        id: repo_info
         run: |
-          echo "Cloning source repository: ${{ steps.set_inputs.outputs.source_repo_url }}"
-          git clone --depth 1 --branch ${{ steps.set_inputs.outputs.source_repo_ref }} ${{ steps.set_inputs.outputs.source_repo_url }} source
+          # Extract owner/repo from URL (e.g., https://github.com/owner/repo)
+          REPO_FULL=$(echo "${{ steps.set_inputs.outputs.source_repo_url }}" | sed 's|https://github.com/||' | sed 's|\.git$||')
+          echo "repo_full=$REPO_FULL" >> $GITHUB_OUTPUT
+
+      - name: Clone source repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.repo_info.outputs.repo_full }}
+          ref: ${{ steps.set_inputs.outputs.source_repo_ref }}
+          path: source
+          token: ${{ github.token }}
           
       - name: Validate source repository structure
         run: |
