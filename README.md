@@ -1,24 +1,66 @@
 # PS Image Builder
 
-A **generic, reusable image builder** for creating GCP Compute Engine images from any workshop or demo repository.
+A **generic, reusable GitHub Actions workflow** for creating GCP Compute Engine images from any workshop or demo repository.
+
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/alan-teodoro/ps-image-builder/releases/tag/v1.0.0)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Overview
 
-This project allows you to build pre-configured VM images from **any Git repository** that follows a simple standard structure. Instead of installing software at boot time (10-15 minutes), images are pre-built with all dependencies and Docker images cached, enabling instance provisioning in ~30 seconds.
+This project provides a **reusable GitHub Actions workflow** that builds pre-configured VM images from **any Git repository** following a simple standard structure. Instead of installing software at boot time (10-15 minutes), images are pre-built with all dependencies and Docker images cached, enabling instance provisioning in ~30 seconds.
 
 ### Key Features
 
-- ✅ **Generic & Reusable**: Works with any repository following the standard structure
+- ✅ **Reusable Workflow**: Call from any repository, get image ID back
+- ✅ **Synchronous**: Waits for build completion, returns results
+- ✅ **Versioned**: Pin to specific versions for stability
 - ✅ **Fast Provisioning**: Pre-caches Docker images for instant startup
-- ✅ **Manual & Automated**: Trigger builds manually or via webhooks
-- ✅ **Versioned**: Support for image families and semantic versioning
 - ✅ **Simple Structure**: Only requires `docker-compose.yml` and `start.sh`
+- ✅ **No PAT Required**: Uses GitHub's built-in authentication
 
 ## Quick Start
 
-### 1. Prepare Your Repository
+### 1. Add to Your Workshop Repository
 
-Your workshop/demo repository needs just two files:
+Create `.github/workflows/build-image.yml` in your workshop repository:
+
+```yaml
+name: Build GCP Image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-image:
+    uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@v1.0.0
+    with:
+      source_repo_url: ${{ github.server_url }}/${{ github.repository }}
+      source_repo_ref: ${{ github.ref_name }}
+      image_name: ${{ github.event.repository.name }}
+      image_family: ${{ format('{0}-{1}', github.event.repository.name, github.ref_name) }}
+      gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+  display-results:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Image ID: ${{ needs.build-image.outputs.image_id }}"
+```
+
+### 2. Add Required Secrets
+
+In your workshop repository settings, add:
+- `GCP_SA_KEY` - GCP service account key JSON
+- `GCP_PROJECT_ID` - Your GCP project ID
+
+### 3. Prepare Your Repository Structure
+
+Your workshop repository needs just two files:
 
 ```
 your-workshop-repo/
@@ -28,46 +70,33 @@ your-workshop-repo/
 
 See [Repository Structure Guide](docs/REPOSITORY_STRUCTURE.md) for details.
 
-### 2. Build an Image
+### 4. Trigger the Build
 
-#### Option A: GitHub Actions (Manual Trigger)
+Push to `main` or create a tag starting with `v`:
+
+```bash
+git tag v1.0.0
+git push --tags
+```
+
+The workflow will:
+1. ✅ Build the GCP image
+2. ✅ Pre-cache all Docker images
+3. ✅ Return the image ID
+4. ✅ Make it available for deployment
+
+## Alternative: Manual Trigger
+
+If you prefer manual control:
 
 1. Go to **Actions** tab in this repository
 2. Select **"Build GCP Image"** workflow
 3. Click **"Run workflow"**
-4. Fill in the parameters:
-   - **Source repo URL**: `https://github.com/yourorg/your-workshop`
-   - **Branch/tag**: `main`
-   - **Image name**: `my-workshop`
-   - **Image family**: `my-workshop-v1`
-   - **GCP project ID**: `your-gcp-project`
-5. Click **"Run workflow"**
+4. Fill in the parameters and run
 
-#### Option B: Local Build (Advanced)
+## Using the Image
 
-```bash
-# Clone your workshop repository
-git clone https://github.com/yourorg/your-workshop source
-
-# Initialize Packer
-cd packer
-packer init generic-image.pkr.hcl
-
-# Build the image
-packer build \
-  -var "project_id=your-gcp-project" \
-  -var "image_name=my-workshop" \
-  -var "image_family=my-workshop-v1" \
-  -var "source_content_path=../source" \
-  generic-image.pkr.hcl
-```
-
-### 3. Deploy the Image
-
-The image will be available in GCP Console:
-**Compute Engine > Images > Filter by family**
-
-Deploy with `gcloud`:
+### Deploy with gcloud
 
 ```bash
 gcloud compute instances create my-workshop-vm \
@@ -178,8 +207,13 @@ See the [examples/sample-workshop](examples/sample-workshop) directory for a com
 
 ## Documentation
 
-- [Repository Structure Guide](docs/REPOSITORY_STRUCTURE.md) - How to structure your workshop repo
-- [Analysis Document](ANALYSIS.md) - Technical analysis and architecture
+- 📘 [Reusable Workflow Guide](docs/REUSABLE_WORKFLOW.md) - **START HERE** - How to use this workflow
+- 📘 [Repository Structure Guide](docs/REPOSITORY_STRUCTURE.md) - How to structure your workshop repo
+- 📘 [Quick Start Guide](docs/QUICK_START.md) - Step-by-step setup
+- 📘 [Triggering from Repos](docs/TRIGGER_FROM_REPO.md) - All trigger methods
+- 📘 [Architecture](docs/ARCHITECTURE.md) - Technical architecture
+- 📘 [Setup Checklist](docs/SETUP_CHECKLIST.md) - Complete setup checklist
+- 📘 [CHANGELOG](CHANGELOG.md) - Version history
 
 ## Troubleshooting
 
