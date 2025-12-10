@@ -62,6 +62,11 @@ on:
         required: false
         default: 'generic-workshop'
         type: string
+      gcp_project_id:
+        description: 'GCP Project ID'
+        required: false
+        default: 'redislabs-sa-training-services'
+        type: string
       gcp_region:
         description: 'GCP Region'
         required: false
@@ -113,16 +118,10 @@ jobs:
           echo "source_repo_ref=${{ inputs.source_repo_ref }}" >> $GITHUB_OUTPUT
           echo "image_name=${{ inputs.image_name }}" >> $GITHUB_OUTPUT
           echo "image_family=${{ inputs.image_family }}" >> $GITHUB_OUTPUT
+          echo "gcp_project_id=${{ inputs.gcp_project_id }}" >> $GITHUB_OUTPUT
           echo "gcp_region=${{ inputs.gcp_region }}" >> $GITHUB_OUTPUT
           echo "gcp_zone=${{ inputs.gcp_zone }}" >> $GITHUB_OUTPUT
           echo "disk_size=${{ inputs.disk_size }}" >> $GITHUB_OUTPUT
-
-          # GCP Project ID comes from repository variable or input
-          if [ "${{ github.event_name }}" = "workflow_call" ]; then
-            echo "gcp_project_id=${{ vars.GCP_PROJECT_ID }}" >> $GITHUB_OUTPUT
-          else
-            echo "gcp_project_id=${{ inputs.gcp_project_id }}" >> $GITHUB_OUTPUT
-          fi
 
       - name: Checkout image builder repository
         uses: actions/checkout@v4
