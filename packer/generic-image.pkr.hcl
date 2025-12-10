@@ -43,7 +43,7 @@ variable "region" {
 variable "source_image_family" {
   type        = string
   description = "Base image family to use"
-  default     = "ubuntu-2004-lts"
+  default     = "ubuntu-2204-lts"
 }
 
 variable "source_image_project" {
