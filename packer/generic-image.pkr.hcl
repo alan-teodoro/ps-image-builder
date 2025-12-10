@@ -80,7 +80,7 @@ locals {
 source "googlecompute" "generic_image" {
   project_id              = var.project_id
   source_image_family     = var.source_image_family
-  source_image_project_id = var.source_image_project
+  source_image_project_id = [var.source_image_project]
   zone                    = var.zone
   region                  = var.region
   machine_type            = var.machine_type
