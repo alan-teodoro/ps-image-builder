@@ -4,18 +4,123 @@ This guide explains how to trigger image builds from your workshop repository au
 
 ## Overview
 
-The `ps-image-builder` workflow can be triggered in two ways:
-1. **Manual Trigger**: Via GitHub Actions UI (workflow_dispatch)
-2. **Programmatic Trigger**: Via GitHub API from another repository (repository_dispatch)
+The `ps-image-builder` workflow can be triggered in three ways:
+1. **Reusable Workflow** (RECOMMENDED): Call as a reusable workflow with `workflow_call`
+2. **Manual Trigger**: Via GitHub Actions UI (workflow_dispatch)
+3. **Programmatic Trigger**: Via GitHub API from another repository (deprecated)
 
-## Method 1: Manual Trigger (GitHub UI)
+## Method 1: Reusable Workflow (RECOMMENDED)
+
+This is the **recommended approach** as it:
+- ✅ Waits for the build to complete
+- ✅ Returns the image ID and details
+- ✅ Supports versioning via git tags
+- ✅ No need for PAT tokens
+- ✅ Cleaner and more maintainable
+
+### Prerequisites
+
+Add these secrets to your workshop repository:
+- `GCP_SA_KEY`: GCP service account key (same as in ps-image-builder)
+- `GCP_PROJECT_ID`: Your GCP project ID
+
+### Create Workflow in Your Workshop Repository
+
+Create `.github/workflows/build-image.yml`:
+
+```yaml
+name: Build GCP Image
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build-image:
+    name: Build GCP Image
+    # IMPORTANT: Use a specific version tag in production
+    # Example: @v1.0.0 instead of @main
+    uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@v1.0.0
+    with:
+      source_repo_url: ${{ github.server_url }}/${{ github.repository }}
+      source_repo_ref: ${{ github.ref_name }}
+      image_name: ${{ github.event.repository.name }}
+      image_family: ${{ format('{0}-{1}', github.event.repository.name, github.ref_name) }}
+      gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+      gcp_region: 'us-east1'
+      gcp_zone: 'us-east1-b'
+      disk_size: '100'
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+  display-results:
+    name: Display Results
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show image info
+        run: |
+          echo "Image ID: ${{ needs.build-image.outputs.image_id }}"
+          echo "Image Name: ${{ needs.build-image.outputs.image_name }}"
+          echo "Self Link: ${{ needs.build-image.outputs.image_self_link }}"
+```
+
+### Versioning
+
+**Always use a specific version tag in production!**
+
+```yaml
+# ❌ DON'T use @main in production (unstable)
+uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@main
+
+# ✅ DO use a specific version tag
+uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@v1.0.0
+
+# ✅ Or use a major version (gets latest patch)
+uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@v1
+```
+
+**Available versions:**
+- `v1.0.0` - Initial stable release
+- `v1` - Latest v1.x.x release
+- `main` - Latest development (not recommended for production)
+
+### Outputs
+
+The workflow provides these outputs:
+- `image_id` - GCP image ID (e.g., "1234567890123456789")
+- `image_name` - Full image name (e.g., "my-workshop-20231210-123456")
+- `image_self_link` - GCP self link URL
+
+Use them in subsequent jobs:
+
+```yaml
+jobs:
+  build-image:
+    uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@v1.0.0
+    # ... inputs and secrets ...
+
+  deploy-vm:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy VM
+        run: |
+          gcloud compute instances create my-vm \
+            --image=${{ needs.build-image.outputs.image_name }} \
+            --project=${{ secrets.GCP_PROJECT_ID }}
+```
+
+## Method 2: Manual Trigger (GitHub UI)
 
 1. Go to: https://github.com/alan-teodoro/ps-image-builder/actions
 2. Click "Build GCP Image" workflow
 3. Click "Run workflow"
 4. Fill in parameters and run
 
-## Method 2: Programmatic Trigger (GitHub API)
+## Method 3: Programmatic Trigger (Deprecated)
 
 ### Prerequisites
 

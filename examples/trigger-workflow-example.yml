@@ -1,0 +1,76 @@
+# Example workflow to add to your workshop repository
+# This calls the ps-image-builder reusable workflow to create a GCP image
+#
+# Save this as: .github/workflows/build-image.yml in your workshop repository
+#
+# Required secrets in your workshop repository:
+# - GCP_SA_KEY: GCP service account key (same as in ps-image-builder)
+# - GCP_PROJECT_ID: Your GCP project ID
+
+name: Build GCP Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      image_family:
+        description: 'Image family (e.g., my-workshop-v1)'
+        required: false
+        type: string
+      disk_size:
+        description: 'Disk size in GB'
+        required: false
+        default: '100'
+        type: string
+
+jobs:
+  build-image:
+    name: Build GCP Image
+    # Call the reusable workflow from ps-image-builder
+    # IMPORTANT: Use a specific version tag (e.g., @v1.0.0) in production
+    uses: alan-teodoro/ps-image-builder/.github/workflows/build-image.yml@main
+    with:
+      source_repo_url: ${{ github.server_url }}/${{ github.repository }}
+      source_repo_ref: ${{ github.ref_name }}
+      image_name: ${{ github.event.repository.name }}
+      image_family: ${{ inputs.image_family || format('{0}-{1}', github.event.repository.name, github.ref_name) }}
+      gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+      gcp_region: 'us-east1'
+      gcp_zone: 'us-east1-b'
+      disk_size: ${{ inputs.disk_size || '100' }}
+    secrets:
+      GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+
+  display-results:
+    name: Display Build Results
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Display image information
+        run: |
+          echo "=========================================="
+          echo "✅ IMAGE BUILD COMPLETE"
+          echo "=========================================="
+          echo ""
+          echo "📦 Image Details:"
+          echo "  ID:           ${{ needs.build-image.outputs.image_id }}"
+          echo "  Name:         ${{ needs.build-image.outputs.image_name }}"
+          echo "  Self Link:    ${{ needs.build-image.outputs.image_self_link }}"
+          echo ""
+          echo "=========================================="
+          echo "📋 Deploy Your VM"
+          echo "=========================================="
+          echo ""
+          echo "gcloud compute instances create my-vm \\"
+          echo "  --image=${{ needs.build-image.outputs.image_name }} \\"
+          echo "  --project=${{ secrets.GCP_PROJECT_ID }} \\"
+          echo "  --zone=us-east1-b \\"
+          echo "  --machine-type=n1-standard-2 \\"
+          echo "  --metadata=DOMAIN=nip.io,HOSTNAME=my-workshop \\"
+          echo "  --tags=http-server"
+          echo ""
+
